@@ -51,7 +51,12 @@ class SQSClientExtended(object):
 				region_name=aws_region_name
 			)
 		else:
-			self.sqs = boto3.client('sqs')
+			from botocore.config import Config
+			if aws_region_name:
+				config = Config(region_name=aws_region_name, signature_version='v4')
+				self.sqs = boto3.client('sqs', config=config)
+			else:
+				self.sqs = boto3.client('sqs')
 
 	def is_large_payload_support_enabled(self):
 		True
@@ -127,21 +132,18 @@ class SQSClientExtended(object):
 		for message in opt_messages:
 			large_pay_load_attribute_value = message.get('MessageAttributes', {}).get(SQSExtendedClientConstants.RESERVED_ATTRIBUTE_NAME.value, None)
 			if large_pay_load_attribute_value:
-				try:
-					message_body = json.loads(message.get('Body'))
-					if 's3BucketName' not in message_body and 's3Key' not in message_body:
-						raise ValueError('Detected missing required key attribute s3BucketName and s3Key in s3 payload')
-					s3_bucket_name = message_body.get('s3BucketName')
-					s3_key = message_body.get('s3Key')
-					orig_msg_body = self.get_text_from_s3(s3_bucket_name, s3_key)
-					message['Body'] = orig_msg_body
-					# remove the additional attribute before returning the message to user.
-					message.get('MessageAttributes').pop(SQSExtendedClientConstants.RESERVED_ATTRIBUTE_NAME.value)
-					# Embed s3 object pointer in the receipt handle.
-					modified_receipt_handle = SQSExtendedClientConstants.S3_BUCKET_NAME_MARKER.value + s3_bucket_name + SQSExtendedClientConstants.S3_BUCKET_NAME_MARKER.value + SQSExtendedClientConstants.S3_KEY_MARKER.value + s3_key + SQSExtendedClientConstants.S3_KEY_MARKER.value + message.get('ReceiptHandle')
-					message['ReceiptHandle'] = modified_receipt_handle
-				except ValueError:
-					raise ValueError('Decoding JSON has failed')
+				message_body = json.loads(message.get('Body'))
+				if 's3BucketName' not in message_body and 's3Key' not in message_body:
+					raise ValueError('Detected missing required key attribute s3BucketName and s3Key in s3 payload')
+				s3_bucket_name = message_body.get('s3BucketName')
+				s3_key = message_body.get('s3Key')
+				orig_msg_body = self.get_text_from_s3(s3_bucket_name, s3_key)
+				message['Body'] = orig_msg_body
+				# remove the additional attribute before returning the message to user.
+				message.get('MessageAttributes').pop(SQSExtendedClientConstants.RESERVED_ATTRIBUTE_NAME.value)
+				# Embed s3 object pointer in the receipt handle.
+				modified_receipt_handle = SQSExtendedClientConstants.S3_BUCKET_NAME_MARKER.value + s3_bucket_name + SQSExtendedClientConstants.S3_BUCKET_NAME_MARKER.value + SQSExtendedClientConstants.S3_KEY_MARKER.value + s3_key + SQSExtendedClientConstants.S3_KEY_MARKER.value + message.get('ReceiptHandle')
+				message['ReceiptHandle'] = modified_receipt_handle
 
 		return opt_messages
 
@@ -208,7 +210,7 @@ class SQSClientExtended(object):
 		fifo_queue = True
 		if not all([message_group_id, message_deduplication_id]):
 			if any([message_group_id, message_deduplication_id]):
-			        raise ValueError('message_group_id and message_deduplication_id are conditionally required together')
+				raise ValueError('message_group_id and message_deduplication_id are conditionally required together')
 			else:
 				fifo_queue = False
 
