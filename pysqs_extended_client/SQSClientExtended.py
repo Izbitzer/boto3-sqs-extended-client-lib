@@ -133,6 +133,8 @@ class SQSClientExtended(object):
 			large_pay_load_attribute_value = message.get('MessageAttributes', {}).get(SQSExtendedClientConstants.RESERVED_ATTRIBUTE_NAME.value, None)
 			if large_pay_load_attribute_value:
 				message_body = json.loads(message.get('Body'))
+				if isinstance(message_body, list) and message_body[0] == "software.amazon.payloadoffloading.PayloadS3Pointer":
+					message_body = message_body[1]
 				if 's3BucketName' not in message_body and 's3Key' not in message_body:
 					raise ValueError('Detected missing required key attribute s3BucketName and s3Key in s3 payload')
 				s3_bucket_name = message_body.get('s3BucketName')
