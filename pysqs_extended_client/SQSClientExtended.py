@@ -128,7 +128,7 @@ class SQSClientExtended(object):
 		response_opt_queue = self.sqs.receive_message(QueueUrl=queue_url, AttributeNames=['All'], MessageAttributeNames=['All', ], MaxNumberOfMessages=max_number_Of_Messages, WaitTimeSeconds=wait_time_seconds,)
 		opt_messages = response_opt_queue.get('Messages', [])
 		if not opt_messages:
-			return None
+			return []
 		for message in opt_messages:
 			large_pay_load_attribute_value = message.get('MessageAttributes', {}).get(SQSExtendedClientConstants.RESERVED_ATTRIBUTE_NAME.value, None)
 			if large_pay_load_attribute_value:
